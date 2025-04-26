@@ -39,12 +39,12 @@ class PlatformProvider extends OrchidServiceProvider
                 ->permission('platform.systems.attachment'),
 
             Menu::make('Операторы')
-                ->icon('bs.shield')
+                ->icon('bp.person')
                 ->route('platform.systems.operators')
                 ->permission('platform.systems.attachment'),
 
             Menu::make('Звонки')
-                ->icon('earphones')
+                ->icon('bs.telephone')
                 ->route('platform.systems.calls')
                 ->permission('platform.systems.attachment'),
         ];
