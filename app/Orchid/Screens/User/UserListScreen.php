@@ -64,10 +64,6 @@ class UserListScreen extends Screen
             Link::make(__('Добавить'))
                 ->icon('bs.plus-circle')
                 ->route('platform.systems.users.create'),
-
-            Link::make(__('Импортировать CSV'))
-                ->icon('download')
-                ->route('platform.systems.users.import')
         ];
     }
 
