@@ -28,7 +28,7 @@ class OperatorListScreen extends Screen
         foreach ($operators as $operator) {
             $totalDuration = 0;
             foreach ($operator->calls as $call) {
-                $duration = DateHelper::toSecond($call->call_duration);
+                $duration = DateHelper::toSecond((float) $call->call_duration);
 
                 if ($duration < 30)
                 {
