@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Orchid\Screens\Operators;
 
 use App\Models\Operator;
-use App\Orchid\Layouts\Courses\CourseListLayout;
 use App\Orchid\Layouts\Operators\OperatorListLayout;
+use App\Traits\DateHelper;
 use Illuminate\Http\Request;
-use Orchid\Screen\Actions\Link;
 use Orchid\Screen\Screen;
 use Orchid\Support\Facades\Toast;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 class OperatorListScreen extends Screen
 {
@@ -21,10 +21,35 @@ class OperatorListScreen extends Screen
      */
     public function query(): iterable
     {
+        $operators = Operator::with('calls')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        foreach ($operators as $operator) {
+            $totalDuration = 0;
+            foreach ($operator->calls as $call) {
+                $duration = DateHelper::toSecond($call->call_duration);
+
+                if ($duration < 30)
+                {
+                    continue;
+                }
+
+                $totalDuration += $duration;
+            }
+
+            $workedHours = $totalDuration / 3600;
+            $workedHours = min($workedHours, 11);
+
+            $workedMinutes = $totalDuration / 60;
+
+            $operator->worked_hours = number_format($workedHours, 1) . ' ч';
+            $operator->worked_minutes = number_format($workedMinutes, 1) . ' мин';
+        }
+
+
         return [
-            'operators' => Operator::query()
-                ->orderBy('id', 'desc')
-                ->paginate(15),
+            'operators' => $operators,
         ];
     }
 
@@ -44,19 +69,6 @@ class OperatorListScreen extends Screen
         return 'Полный список операторов';
     }
 
-    /**
-     * The screen's action buttons.
-     *
-     * @return \Orchid\Screen\Action[]
-     */
-    public function commandBar(): iterable
-    {
-        return [
-//            Link::make(__('Добавить'))
-//                ->icon('bs.plus-circle')
-//                ->route('platform.systems.courses.create'),
-        ];
-    }
 
     /**
      * The screen's layout elements.

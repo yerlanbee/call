@@ -102,6 +102,8 @@ class CallListScreen extends Screen
     {
         Call::query()->truncate(); // очищает всю таблицу
 
+        Operator::query()->truncate();
+
         Toast::info(__('Успешнно удалили все записи.'));
     }
 

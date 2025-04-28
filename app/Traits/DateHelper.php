@@ -7,6 +7,12 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 class DateHelper
 {
+
+    public static function toSecond(float $time): float
+    {
+        return $time * 86400;
+    }
+
     public static function toExcel(
         string $date
     ): int
