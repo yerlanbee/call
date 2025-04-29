@@ -4,26 +4,34 @@ namespace App\Imports;
 
 use App\Models\Call;
 use App\Models\Operator;
+use App\Traits\DateHelper;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
 class CallsCsvImport implements ToModel, WithHeadingRow
 {
 
-    public function model(array $row): Call
+    public function model(array $row): ?Call
     {
-        $operator = Operator::query()->where('username', $row['fio_menedzera'])->first();
+        $seconds = DateHelper::toSecond((float) $row['dlitelnost_razgovora']);
 
-        if (!$operator) {
-            $operator = Operator::query()->create([
-                'username' => $row['fio_menedzera'],
+        if ($seconds > 30)
+        {
+            $operator = Operator::query()->where('username', $row['fio_menedzera'])->first();
+
+            if (!$operator) {
+                $operator = Operator::query()->create([
+                    'username' => $row['fio_menedzera'],
+                ]);
+            }
+
+            return new Call([
+                'operator_id' => $operator->id,
+                'call_duration' => $seconds,
+                'date' => $row['data']
             ]);
         }
 
-        return new Call([
-            'operator_id' => $operator->id,
-            'call_duration' => $row['dlitelnost_razgovora'],
-            'date' => $row['data']
-        ]);
+        return null;
     }
 }

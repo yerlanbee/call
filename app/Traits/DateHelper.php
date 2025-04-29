@@ -21,9 +21,8 @@ class DateHelper
         return Date::PHPToExcel($date);
     }
 
-    public static function convertDurationToTime(float $duration): string
+    public static function convertDurationToTime(float $seconds): string
     {
-        $seconds = round($duration * 86400); // 24 * 60 * 60
         $hours = floor($seconds / 3600);
         $minutes = floor(($seconds % 3600) / 60);
         $seconds = $seconds % 60;
