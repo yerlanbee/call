@@ -121,11 +121,6 @@ class CallListScreen extends Screen
             /**
              * @var Call $call
              */
-            if ($call->call_duration < 30)
-            {
-                continue;
-            }
-
             $totalCalls++;
             $totalDuration += (float) $call->call_duration;
         }

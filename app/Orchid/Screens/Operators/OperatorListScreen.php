@@ -30,12 +30,6 @@ class OperatorListScreen extends Screen
             foreach ($operator->calls as $call) {
 
                 $duration = (float) $call->call_duration;
-
-                if ($duration < 30)
-                {
-                    continue;
-                }
-
                 $totalDuration += $duration;
             }
 

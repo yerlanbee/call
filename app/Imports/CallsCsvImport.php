@@ -14,24 +14,19 @@ class CallsCsvImport implements ToModel, WithHeadingRow
     public function model(array $row): ?Call
     {
         $seconds = DateHelper::toSecond((float) $row['dlitelnost_razgovora']);
+        $operator = Operator::query()->where('username', $row['fio_menedzera'])->first();
 
-        if ($seconds > 30)
-        {
-            $operator = Operator::query()->where('username', $row['fio_menedzera'])->first();
-
-            if (!$operator) {
-                $operator = Operator::query()->create([
-                    'username' => $row['fio_menedzera'],
-                ]);
-            }
-
-            return new Call([
-                'operator_id' => $operator->id,
-                'call_duration' => $seconds,
-                'date' => $row['data']
+        if (!$operator) {
+            $operator = Operator::query()->create([
+                'username' => $row['fio_menedzera'],
             ]);
         }
 
-        return null;
+        return new Call([
+            'operator_id' => $operator->id,
+            'call_duration' => $seconds,
+            'date' => $row['data']
+        ]);
+
     }
 }
