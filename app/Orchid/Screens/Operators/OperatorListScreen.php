@@ -21,23 +21,68 @@ class OperatorListScreen extends Screen
      */
     public function query(): iterable
     {
-        $operators = Operator::with('calls')
-            ->orderBy('id', 'desc')
-            ->get();
+        $operators = Operator::with('calls')->orderBy('id', 'desc')->get();
 
         foreach ($operators as $operator) {
-            $totalDuration = 0;
-            foreach ($operator->calls as $call) {
+            $calls = $operator->calls;
 
-                $duration = (float) $call->call_duration;
-                $totalDuration += $duration;
+            $processedCalls = [];
+
+            foreach ($calls as $call) {
+                try {
+                    $ts = Date::excelToDateTimeObject($call->date_time)->getTimestamp();
+
+                    $_duration = Date::excelToDateTimeObject($call->call_duration)->getTimestamp();
+                    $duration = date('H', $_duration) * 3600 + date('i', $_duration) * 60 + date('s', $_duration);
+
+                    $processedCalls[] = [
+                        'timestamp' => $ts,
+                        'duration' => $duration,
+                    ];
+                } catch (\Exception $e) {
+                    // Пропускаем некорректные записи
+                    continue;
+                }
             }
 
-            $workedHours = $totalDuration / 3600;
-            $workedHours = min($workedHours, 11);
+            // Сортируем звонки по времени
+            usort($processedCalls, fn($a, $b) => $a['timestamp'] <=> $b['timestamp']);
 
-            $workedMinutes = $totalDuration / 60;
+            $totalSeconds = 0;
+            $earliest = PHP_INT_MAX;
+            $latest = 0;
+            $lastTs = null;
+            $lastDuration = 0;
 
+            foreach ($processedCalls as $call) {
+                $ts = $call['timestamp'];
+                $duration = $call['duration'];
+
+                if ($lastTs !== null) {
+                    $gap = $ts - $lastTs - $lastDuration;
+
+                    if ($gap > 930) { // Новый рабочий блок
+                        $totalSeconds += ($latest - $earliest + $lastDuration);
+                        $earliest = $ts;
+                        $latest = $ts;
+                    }
+                }
+
+                $lastTs = $ts;
+                $lastDuration = $duration;
+
+                if ($ts < $earliest) $earliest = $ts;
+                if ($ts > $latest) $latest = $ts;
+            }
+
+            // Добавляем последний интервал
+            $totalSeconds += ($latest - $earliest);
+
+            // Перевод в часы и минуты
+            $workedHours = min($totalSeconds / 3600, 11); // максимум 11 ч
+            $workedMinutes = ($totalSeconds / 60);
+
+            // Запись в объект оператора
             $operator->worked_hours = number_format($workedHours, 1) . ' ч';
             $operator->worked_minutes = number_format($workedMinutes, 1) . ' мин';
         }

@@ -30,6 +30,7 @@ class Call extends Model
         'operator_id',
         'call_duration',
         'date',
+        'date_time',
     ];
 
     protected $allowedFilters = [

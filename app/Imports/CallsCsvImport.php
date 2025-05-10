@@ -25,7 +25,8 @@ class CallsCsvImport implements ToModel, WithHeadingRow
         return new Call([
             'operator_id' => $operator->id,
             'call_duration' => $seconds,
-            'date' => $row['data']
+            'date' => $row['data'],
+            'date_time' => $row['data_i_vremia'],
         ]);
 
     }
