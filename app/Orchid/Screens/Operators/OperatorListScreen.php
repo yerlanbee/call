@@ -7,10 +7,10 @@ namespace App\Orchid\Screens\Operators;
 use App\Models\Operator;
 use App\Orchid\Layouts\Operators\OperatorListLayout;
 use App\Traits\DateHelper;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Orchid\Screen\Screen;
 use Orchid\Support\Facades\Toast;
-use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 class OperatorListScreen extends Screen
 {
@@ -21,72 +21,64 @@ class OperatorListScreen extends Screen
      */
     public function query(): iterable
     {
+        $workStart = Carbon::parse('09:00:00');
+        $workEnd = Carbon::parse('19:00:00');
+
         $operators = Operator::with('calls')->orderBy('id', 'desc')->get();
 
         foreach ($operators as $operator) {
-            $calls = $operator->calls;
+            // Общие минуты за день
+            $dailyMinutes = 0;
 
-            $processedCalls = [];
+            // Группируем звонки по дате
+            $callsByDate = $operator->calls->groupBy(function ($call) {
+                return $this->excelToCarbon((float) $call->date_time)->toDateString();
+            });
 
-            foreach ($calls as $call) {
-                try {
-                    $ts = Date::excelToDateTimeObject($call->date_time)->getTimestamp();
+            $operator->worked_days = [];
 
-                    $_duration = Date::excelToDateTimeObject($call->call_duration)->getTimestamp();
-                    $duration = date('H', $_duration) * 3600 + date('i', $_duration) * 60 + date('s', $_duration);
+            foreach ($callsByDate as $date => $calls) {
+                $intervalsWorked = 0;
 
-                    $processedCalls[] = [
-                        'timestamp' => $ts,
-                        'duration' => $duration,
-                    ];
-                } catch (\Exception $e) {
-                    // Пропускаем некорректные записи
-                    continue;
-                }
-            }
+                // Подготовка звонков с временем
+                $callsWithTime = $calls->map(function ($call) {
+                    $call->carbon_time = $this->excelToCarbon((float) $call->date_time);
+                    return $call;
+                });
 
-            // Сортируем звонки по времени
-            usort($processedCalls, fn($a, $b) => $a['timestamp'] <=> $b['timestamp']);
+                // Старт и конец рабочего дня (на конкретную дату)
+                $start = Carbon::parse($date . ' ' . $workStart->format('H:i:s'));
+                $end = Carbon::parse($date . ' ' . $workEnd->format('H:i:s'));
 
-            $totalSeconds = 0;
-            $earliest = PHP_INT_MAX;
-            $latest = 0;
-            $lastTs = null;
-            $lastDuration = 0;
+                // Цикл по 15-мин интервалам
+                $current = $start->copy();
+                while ($current < $end) {
+                    $next = $current->copy()->addMinutes(15);
 
-            foreach ($processedCalls as $call) {
-                $ts = $call['timestamp'];
-                $duration = $call['duration'];
+                    // Проверяем, был ли звонок в интервале
+                    $hasCall = $callsWithTime->contains(function ($call) use ($current, $next) {
+                        return $call->carbon_time->betweenIncluded($current, $next);
+                    });
 
-                if ($lastTs !== null) {
-                    $gap = $ts - $lastTs - $lastDuration;
-
-                    if ($gap > 930) { // Новый рабочий блок
-                        $totalSeconds += ($latest - $earliest + $lastDuration);
-                        $earliest = $ts;
-                        $latest = $ts;
+                    if ($hasCall) {
+                        // Засчитываем интервал
+                        $intervalsWorked++;
                     }
+
+                    $current = $next;
                 }
 
-                $lastTs = $ts;
-                $lastDuration = $duration;
-
-                if ($ts < $earliest) $earliest = $ts;
-                if ($ts > $latest) $latest = $ts;
+                $minutesWorked = $intervalsWorked * 15;
+                $dailyMinutes += $minutesWorked;
             }
 
-            // Добавляем последний интервал
-            $totalSeconds += ($latest - $earliest);
+            $seconds = $operator->calls->sum(function ($call) {
+                return (float) $call->call_duration;
+            });
 
-            // Перевод в часы и минуты
-            $workedHours = min($totalSeconds / 3600, 11); // максимум 11 ч
-            $workedMinutes = ($totalSeconds / 60);
-
-            // Запись в объект оператора
-            $operator->worked_hours = number_format($workedHours, 1) . ' ч';
-            $operator->worked_minutes = number_format($workedMinutes, 1) . ' мин';
+            $operator->worked_hours = number_format($dailyMinutes / 60, 1) . ' ч';
+            $operator->worked_minutes = number_format(($seconds / 60), 1) . ' мин';
         }
-
 
         return [
             'operators' => $operators,
@@ -125,5 +117,10 @@ class OperatorListScreen extends Screen
     public function remove(Request $request): void
     {
         Toast::info(__('Успешно удален.'));
+    }
+
+    private function excelToCarbon(float $excelDate): Carbon
+    {
+        return Carbon::createFromTimestampUTC(($excelDate - 25569) * 86400);
     }
 }
