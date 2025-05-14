@@ -32,13 +32,13 @@ class OperatorListLayout extends Table
                 ->filter(Input::make())
                 ->render(fn (Operator $call) => $call->username),
 
-            TD::make('Отработанные часы', 'Отработанное часы')
+            TD::make('Отработанные часы', 'Отработанные часы')
                 ->sort()
                 ->cantHide()
                 ->filter(Input::make())
                 ->render(fn (Operator $call) => $call->worked_hours),
 
-            TD::make('Отработанные минуты', 'Отработанное минуты')
+            TD::make('Отработанные минуты', 'Отработанные минуты')
                 ->sort()
                 ->cantHide()
                 ->filter(Input::make())
