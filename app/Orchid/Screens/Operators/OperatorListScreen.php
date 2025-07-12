@@ -6,7 +6,6 @@ namespace App\Orchid\Screens\Operators;
 
 use App\Models\Operator;
 use App\Orchid\Layouts\Operators\OperatorListLayout;
-use App\Traits\DateHelper;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Orchid\Screen\Screen;
@@ -21,63 +20,36 @@ class OperatorListScreen extends Screen
      */
     public function query(): iterable
     {
-        $workStart = Carbon::parse('09:00:00');
-        $workEnd = Carbon::parse('19:00:00');
-
-        $operators = Operator::with('calls')->orderBy('id', 'desc')->get();
+        $operators = Operator::with(['calls' => function ($query) {
+            $query->orderBy('date_time');
+        }])->orderBy('id', 'desc')->get();
 
         foreach ($operators as $operator) {
-            // Общие минуты за день
-            $dailyMinutes = 0;
+            $totalSeconds = 0;
+            $previousEnd = null;
 
-            // Группируем звонки по дате
-            $callsByDate = $operator->calls->groupBy(function ($call) {
-                return $this->excelToCarbon((float) $call->date_time)->toDateString();
-            });
+            foreach ($operator->calls as $call) {
+                $start = Carbon::parse($call->date_time);
+                $end = $start->copy()->addSeconds((float) $call->call_duration);
 
-            $operator->worked_days = [];
-
-            foreach ($callsByDate as $date => $calls) {
-                $intervalsWorked = 0;
-
-                // Подготовка звонков с временем
-                $callsWithTime = $calls->map(function ($call) {
-                    $call->carbon_time = $this->excelToCarbon((float) $call->date_time);
-                    return $call;
-                });
-
-                // Старт и конец рабочего дня (на конкретную дату)
-                $start = Carbon::parse($date . ' ' . $workStart->format('H:i:s'));
-                $end = Carbon::parse($date . ' ' . $workEnd->format('H:i:s'));
-
-                // Цикл по 15-мин интервалам
-                $current = $start->copy();
-                while ($current < $end) {
-                    $next = $current->copy()->addMinutes(15);
-
-                    // Проверяем, был ли звонок в интервале
-                    $hasCall = $callsWithTime->contains(function ($call) use ($current, $next) {
-                        return $call->carbon_time->betweenIncluded($current, $next);
-                    });
-
-                    if ($hasCall) {
-                        // Засчитываем интервал
-                        $intervalsWorked++;
+                if ($previousEnd) {
+                    $gap = $start->diffInSeconds($previousEnd);
+                    if ($gap > 480) {
+                        $previousEnd = $end;
+                        continue;
                     }
-
-                    $current = $next;
                 }
 
-                $minutesWorked = $intervalsWorked * 15;
-                $dailyMinutes += $minutesWorked;
+                $totalSeconds += $call->call_duration;
+                $previousEnd = $end;
             }
 
-            $seconds = $operator->calls->sum(function ($call) {
-                return (float) $call->call_duration;
-            });
+            $hours = floor($totalSeconds / 3600);
+            $minutesOnly = floor(($totalSeconds % 3600) / 60);
+            $totalMinutes = floor($totalSeconds / 60);
 
-            $operator->worked_hours = number_format($dailyMinutes / 60, 1) . ' ч';
-            $operator->worked_minutes = number_format(($seconds / 60), 1) . ' мин';
+            $operator->hours = "{$hours} ч {$minutesOnly} мин";
+            $operator->minutes = "$totalMinutes мин";
         }
 
         return [

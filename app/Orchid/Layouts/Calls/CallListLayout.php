@@ -44,6 +44,11 @@ class CallListLayout extends Table
                 ->filter(Input::make())
                 ->render(fn (Call $call) => $call->toDate()),
 
+            TD::make('date', 'Дата и время')
+                ->sort()
+                ->cantHide()
+                ->render(fn (Call $call) => $call->date_time),
+
             TD::make('created_at', 'Создан')
                 ->sort()
                 ->cantHide()

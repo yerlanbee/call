@@ -17,6 +17,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
  * @property int $operator_id
  * @property string $call_duration
  * @property string $date
+ * @property string $date_time
  * @property string $created_at
  * @property-read Operator $operator
  */
@@ -73,7 +74,7 @@ class Call extends Model
 
     public function toDate(): string
     {
-        return Carbon::instance(Date::excelToDateTimeObject($this->date))->format('d.m.Y');
+        return Carbon::parse($this->date)->format('d.m.Y');
     }
 
     public function convertDurationToTime(): string

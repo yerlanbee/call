@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('operator_id')->constrained('operators')->cascadeOnDelete();
             $table->string('call_duration')->default(0);
             $table->string('date');
+            $table->string('date_time');
             $table->timestamps();
         });
     }
