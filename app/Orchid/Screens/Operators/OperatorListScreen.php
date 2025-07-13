@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Orchid\Screens\Operators;
 
+use App\Models\Call;
 use App\Models\Operator;
 use App\Orchid\Layouts\Operators\OperatorListLayout;
 use Carbon\Carbon;
@@ -25,30 +26,14 @@ class OperatorListScreen extends Screen
         }])->orderBy('id', 'desc')->get();
 
         foreach ($operators as $operator) {
-            $totalSeconds = 0;
-            $previousEnd = null; // H[i] - H[i-1]
+            /**
+             * @var Operator $operator
+             */
+            $totalSeconds = $operator->getTotalSecondsByOperator();
+            $call = new Call;
 
-            foreach ($operator->calls as $call) {
-                $start = Carbon::parse($call->date_time);
-                $end = $start->copy()->addSeconds(ceil((float) $call->call_duration)); // Дата и время окончания разговора.
-
-                if ($previousEnd) {
-                    $gapInMinutes = $previousEnd->diffInSeconds($end);
-
-                    if ($gapInMinutes <= 480) {
-                        $totalSeconds += $gapInMinutes;
-                    }
-                }
-
-                $previousEnd = $end;
-            }
-
-            $hours = floor($totalSeconds / 3600);
-            $minutesOnly = floor(($totalSeconds % 3600) / 60);
-            $totalMinutes = floor($totalSeconds / 60);
-
-            $operator->hours = "{$hours} ч {$minutesOnly} мин";
-            $operator->minutes = "$totalMinutes мин";
+            $operator->hours = $call->toHM($totalSeconds);
+            $operator->minutes = $call->toM($totalSeconds);
         }
 
         return [

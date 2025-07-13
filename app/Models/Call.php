@@ -8,10 +8,8 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\DB;
 use Orchid\Filters\Filterable;
 use Orchid\Filters\Types\Like;
-use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 /**
  * @property int $operator_id
@@ -44,25 +42,24 @@ class Call extends Model
     }
 
     /**
-     * @param int|null $operator_id
+     * @param array|null $operatorIds
      * @param string|null $date
      * @return Collection
      */
     public static function getByOperatorOrDate(
-        ?int $operator_id = null,
+        ?array $operatorIds = [],
         ?string $date = null,
     ): Collection
     {
         return Call::query()
-            ->when($operator_id, function ($query, $operator) {
-                return $query->where('operator_id', $operator);
+            ->when($operatorIds, function ($query, $operator) {
+                return $query->whereIn('operator_id', $operator);
             })
             ->when($date, function ($query, $date) {
-
                 $date = Carbon::parse($date);
 
-                $from = DateHelper::toExcel($date->copy()->startOfMonth()->format('d.m.Y'));
-                $to = DateHelper::toExcel($date->copy()->endOfMonth()->format('d.m.Y'));
+                $from = $date->copy()->startOfMonth()->format('Y-m-d');
+                $to = $date->copy()->endOfMonth()->format('Y-m-d');
 
                 $query->whereBetween('date', [
                     $from,
@@ -80,5 +77,29 @@ class Call extends Model
     public function convertDurationToTime(): string
     {
         return DateHelper::convertDurationToTime((float) $this->call_duration);
+    }
+
+    public function toHM(int|float $seconds): string
+    {
+        $hours = floor($seconds / 3600);
+        $minutesOnly = floor(($seconds % 3600) / 60);
+
+        return "{$hours} ч {$minutesOnly} мин";
+    }
+
+    public function toM(int|float $seconds): string
+    {
+        $totalMinutes = floor($seconds / 60);
+
+        return "$totalMinutes мин";
+    }
+
+    public function toHMS(int|float $seconds): string
+    {
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $seconds = $seconds % 60;
+
+        return sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
     }
 }

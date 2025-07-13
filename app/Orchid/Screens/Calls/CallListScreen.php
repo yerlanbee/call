@@ -10,7 +10,7 @@ use App\Orchid\Filters\DateFilter;
 use App\Orchid\Filters\OperatorFilter;
 use App\Orchid\Layouts\Calls\CallListLayout;
 use App\Orchid\Layouts\OperatorSelection;
-use App\Traits\DateHelper;
+use Carbon\Carbon;
 use Orchid\Screen\Actions\Button;
 use Orchid\Screen\Actions\Link;
 use Orchid\Screen\Screen;
@@ -19,6 +19,8 @@ use Orchid\Support\Facades\Toast;
 
 class CallListScreen extends Screen
 {
+    public array $data = [];
+
     /**
      * Fetch data to be displayed on the screen.
      *
@@ -26,11 +28,52 @@ class CallListScreen extends Screen
      */
     public function query(): iterable
     {
-        return [
-            'calls' => Call::filters([OperatorFilter::class, DateFilter::class])->with('operator')
-                ->orderBy('id', 'desc')
-                ->paginate(15),
+        $filter = request()->input('filter') ?? null;
 
+        $operatorIds = $filter['operator'] ?? [];
+        $date = $filter['date'] ?? null;
+
+        // Список звонков.
+        $calls = Call::filters([OperatorFilter::class, DateFilter::class])
+            ->when($operatorIds, function ($query, $operatorIds) {
+                return $query->whereIn('operator_id', $operatorIds);
+            })
+            ->when($date, function ($query, $date) {
+                $date = Carbon::parse($date);
+
+                $from = $date->copy()->startOfMonth()->format('Y-m-d');
+                $to = $date->copy()->endOfMonth()->format('Y-m-d');
+
+                $query->whereBetween('date', [
+                    $from,
+                    $to
+                ]);
+            });
+
+        $this->data['total_calls'] = 0;
+        $this->data['total_seconds'] = 0;
+
+        $previousEnd = null;
+
+        foreach ($calls->get() as $call) {
+
+            $start = Carbon::parse($call->date_time);
+            $end = $start->copy()->addSeconds(ceil((float) $call->call_duration)); // Дата и время окончания разговора.
+
+            if ($previousEnd) {
+                $gapInSeconds = $previousEnd->diffInSeconds($end);
+
+                if ($gapInSeconds > 0 && $gapInSeconds <= 480) {
+                    $this->data['total_calls'] += 1;
+                    $this->data['total_seconds'] += $gapInSeconds;
+                }
+            }
+
+            $previousEnd = $end;
+        }
+
+        return [
+            'calls' => $calls->paginate(20),
         ];
     }
 
@@ -50,33 +93,8 @@ class CallListScreen extends Screen
      */
     public function layout(): iterable
     {
-        $date = request()->input('date') ?? null;
-
-        $operator = request()->input('operator_id') ?? null;
-
-        $calls = Call::getByOperatorOrDate((int) $operator, $date);
-
-        $counts = $this->getTime($calls);
-
-        $data = [
-            'total_calls' => $counts['total_calls'],
-            'total_duration' => $counts['total_duration'],
-        ];
-
-        if ($date)
-        {
-
-            $perDay = $this->getTime($calls->where('date', DateHelper::toExcel($date)));
-
-            $data['total_calls'] = $perDay['total_calls'];
-            $data['total_duration'] = $perDay['total_duration'];
-        }
-
-        if ($operator)
-        {
-            $data['operator'] = Operator::query()->find($operator)->username;
-        }
-
+        $data['total_duration'] = (new Call)->toHMS($this->data['total_seconds']);
+        $data['total_calls'] = $this->data['total_calls'];
         return [
             Layout::view('calls.description', ['data' => $data]),
             OperatorSelection::class,
@@ -104,30 +122,6 @@ class CallListScreen extends Screen
 
         Operator::query()->truncate();
 
-        Toast::info(__('Успешнно удалили все записи.'));
-    }
-
-    /**
-     * @param \Illuminate\Database\Eloquent\Collection $calls
-     * @return array
-     */
-    private function getTime(\Illuminate\Database\Eloquent\Collection $calls): array
-    {
-        $totalCalls = 0;
-        $totalDuration = 0;
-
-        foreach ($calls as $call)
-        {
-            /**
-             * @var Call $call
-             */
-            $totalCalls++;
-            $totalDuration += (float) $call->call_duration;
-        }
-
-        return [
-            'total_calls' => $totalCalls,
-            'total_duration' => DateHelper::convertDurationToTime($totalDuration)
-        ];
+        Toast::info(__('Успешно удалили все записи.'));
     }
 }
