@@ -22,25 +22,25 @@ class OperatorListScreen extends Screen
     {
         $operators = Operator::with(['calls' => function ($query) {
             $query->orderBy('date_time');
-        }])->orderBy('id', 'desc')->get();
+        }])->orderBy('id', 'desc')
+            ->get();
 
         foreach ($operators as $operator) {
             $totalSeconds = 0;
-            $previousEnd = null;
+            $previousEnd = null; // I[i-1]
 
             foreach ($operator->calls as $call) {
                 $start = Carbon::parse($call->date_time);
-                $end = $start->copy()->addSeconds((float) $call->call_duration);
+                $end = $start->copy()->addSeconds(ceil((float) $call->call_duration)); // I[i]
 
                 if ($previousEnd) {
-                    $gap = $start->diffInSeconds($previousEnd);
-                    if ($gap > 480) {
-                        $previousEnd = $end;
-                        continue;
+                    $gapInMinutes = $previousEnd->diffInSeconds($end);
+
+                    if ($gapInMinutes <= 480) {
+                        $totalSeconds += $gapInMinutes;
                     }
                 }
 
-                $totalSeconds += $call->call_duration;
                 $previousEnd = $end;
             }
 
@@ -49,7 +49,7 @@ class OperatorListScreen extends Screen
             $totalMinutes = floor($totalSeconds / 60);
 
             $operator->hours = "{$hours} ч {$minutesOnly} мин";
-            $operator->minutes = "$totalMinutes мин";
+            $operator->minutes = $totalMinutes;
         }
 
         return [
