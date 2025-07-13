@@ -22,16 +22,15 @@ class OperatorListScreen extends Screen
     {
         $operators = Operator::with(['calls' => function ($query) {
             $query->orderBy('date_time');
-        }])->orderBy('id', 'desc')
-            ->get();
+        }])->orderBy('id', 'desc')->get();
 
         foreach ($operators as $operator) {
             $totalSeconds = 0;
-            $previousEnd = null; // I[i-1]
+            $previousEnd = null; // H[i] - H[i-1]
 
             foreach ($operator->calls as $call) {
                 $start = Carbon::parse($call->date_time);
-                $end = $start->copy()->addSeconds(ceil((float) $call->call_duration)); // I[i]
+                $end = $start->copy()->addSeconds(ceil((float) $call->call_duration)); // Дата и время окончания разговора.
 
                 if ($previousEnd) {
                     $gapInMinutes = $previousEnd->diffInSeconds($end);
@@ -49,7 +48,7 @@ class OperatorListScreen extends Screen
             $totalMinutes = floor($totalSeconds / 60);
 
             $operator->hours = "{$hours} ч {$minutesOnly} мин";
-            $operator->minutes = $totalMinutes;
+            $operator->minutes = "$totalMinutes мин";
         }
 
         return [
