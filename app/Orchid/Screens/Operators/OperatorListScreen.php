@@ -30,10 +30,11 @@ class OperatorListScreen extends Screen
              * @var Operator $operator
              */
             $totalSeconds = $operator->getTotalSecondsByOperator();
+
             $call = new Call;
 
-            $operator->hours = $call->toHM($totalSeconds);
-            $operator->minutes = $call->toM($totalSeconds);
+            $operator->hours = $call->toHM($totalSeconds->secondsCalculated);
+            $operator->minutes = $call->toM($totalSeconds->secondsFact);
         }
 
         return [

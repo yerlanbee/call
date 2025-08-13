@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Dto\TotalTimeDto;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -30,11 +31,12 @@ class Operator extends Model
     /**
      * Считаем по формуле.
      *
-     * @return float|int
+     * @return TotalTimeDto
      */
-    public function getTotalSecondsByOperator(): float|int
+    public function getTotalSecondsByOperator(): TotalTimeDto
     {
-        $totalSeconds = 0;
+        $totalSecondsFact = 0;
+        $totalSecondsCalculated = 0;
         $previousEnd = null; // H[i] - H[i-1]
 
         foreach ($this->calls as $call) {
@@ -45,13 +47,14 @@ class Operator extends Model
                 $gapInSeconds = $previousEnd->diffInSeconds($end);
 
                 if ($gapInSeconds <= 480) {
-                    $totalSeconds += $gapInSeconds;
+                    $totalSecondsCalculated += $gapInSeconds;
                 }
             }
 
             $previousEnd = $end;
+            $totalSecondsFact += floatval($call->call_duration);
         }
 
-        return $totalSeconds;
+        return new TotalTimeDto($totalSecondsFact, $totalSecondsCalculated);
     }
 }
