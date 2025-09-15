@@ -46,7 +46,7 @@ class Operator extends Model
             if ($previousEnd) {
                 $gapInSeconds = $previousEnd->diffInSeconds($end);
 
-                if ($gapInSeconds <= 1200) {
+                if ($gapInSeconds <= 900) {
                     $totalSecondsCalculated += $gapInSeconds;
                 }
             }
